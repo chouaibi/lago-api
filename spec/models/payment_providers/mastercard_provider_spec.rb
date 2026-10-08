@@ -97,10 +97,12 @@ RSpec.describe PaymentProviders::MastercardProvider do
   end
 
   describe "#determine_payment_status" do
-    it "maps the gateway statuses" do
-      expect(mastercard_provider.determine_payment_status("CAPTURED")).to eq(:succeeded)
+    it "maps the gateway transaction results" do
+      expect(mastercard_provider.determine_payment_status("SUCCESS")).to eq(:succeeded)
       expect(mastercard_provider.determine_payment_status("PENDING")).to eq(:processing)
-      expect(mastercard_provider.determine_payment_status("DECLINED")).to eq(:failed)
+      expect(mastercard_provider.determine_payment_status("UNKNOWN")).to eq(:processing)
+      expect(mastercard_provider.determine_payment_status("FAILURE")).to eq(:failed)
+      expect(mastercard_provider.determine_payment_status("ERROR")).to eq(:failed)
     end
   end
 end

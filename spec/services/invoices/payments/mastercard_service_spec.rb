@@ -17,7 +17,7 @@ RSpec.describe Invoices::Payments::MastercardService do
     end
 
     let(:provider_payment_id) { "transaction-1" }
-    let(:status) { "CAPTURED" }
+    let(:status) { "SUCCESS" }
     let(:payment) do
       create(
         :payment,
@@ -35,7 +35,7 @@ RSpec.describe Invoices::Payments::MastercardService do
 
     it "updates the payment and the invoice payment status" do
       expect(result).to be_success
-      expect(result.payment).to have_attributes(status: "CAPTURED", payable_payment_status: "succeeded")
+      expect(result.payment).to have_attributes(status: "SUCCESS", payable_payment_status: "succeeded")
       expect(result.invoice.reload).to have_attributes(
         payment_status: "succeeded",
         ready_for_payment_processing: false,
@@ -52,7 +52,7 @@ RSpec.describe Invoices::Payments::MastercardService do
     end
 
     context "when the payment failed" do
-      let(:status) { "DECLINED" }
+      let(:status) { "FAILURE" }
 
       it "marks the invoice as failed" do
         expect(result).to be_success

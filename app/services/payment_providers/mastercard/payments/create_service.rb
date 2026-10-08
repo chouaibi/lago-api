@@ -42,8 +42,8 @@ module PaymentProviders
           response = LagoHttpClient::Client.new(charge_url).put_with_response(charge_payload, payment_provider.api_headers)
           parsed = JSON.parse(response.body)
 
-          payment.provider_payment_id = parsed.dig("transaction", "id")
-          payment.status = parsed.dig("order", "status") || parsed["result"]
+          payment.provider_payment_id = parsed.dig("transaction", "id") || transaction_id
+          payment.status = parsed["result"]
           payment.payable_payment_status = payment_provider.determine_payment_status(payment.status)
           payment.save!
 
@@ -64,8 +64,13 @@ module PaymentProviders
           @token ||= payment.payment_method&.provider_method_id || provider_customer.token
         end
 
+        # NOTE: The transaction id identifies the payment in the gateway notifications.
+        def transaction_id
+          @transaction_id ||= SecureRandom.uuid
+        end
+
         def charge_url
-          "#{payment_provider.api_url}/order/#{invoice.id}/transaction/#{SecureRandom.uuid}"
+          "#{payment_provider.api_url}/order/#{invoice.id}/transaction/#{transaction_id}"
         end
 
         def charge_payload

@@ -5,9 +5,10 @@ module PaymentProviders
     API_VERSION = "100"
     REGIONS = %w[ap eu na].freeze
 
-    PROCESSING_STATUSES = %w[PENDING IN_PROGRESS].freeze
-    SUCCESS_STATUSES = %w[CAPTURED AUTHORIZED].freeze
-    FAILED_STATUSES = %w[FAILED EXPIRED CANCELLED DECLINED].freeze
+    # NOTE: A payment status is the `result` of the gateway transaction that charged it.
+    PROCESSING_STATUSES = %w[PENDING UNKNOWN].freeze
+    SUCCESS_STATUSES = %w[SUCCESS].freeze
+    FAILED_STATUSES = %w[FAILURE ERROR].freeze
 
     validates :merchant_id, presence: true
     validates :api_password, presence: true

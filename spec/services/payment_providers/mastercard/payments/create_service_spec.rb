@@ -65,7 +65,7 @@ RSpec.describe PaymentProviders::Mastercard::Payments::CreateService do
       expect(result).to be_success
       expect(result.payment).to have_attributes(
         provider_payment_id: "transaction-1",
-        status: "CAPTURED",
+        status: "SUCCESS",
         payable_payment_status: "succeeded"
       )
     end
@@ -95,7 +95,7 @@ RSpec.describe PaymentProviders::Mastercard::Payments::CreateService do
       it "marks the payment as failed" do
         result = create_service.call
 
-        expect(result.payment).to have_attributes(provider_payment_id: "transaction-1", payable_payment_status: "failed")
+        expect(result.payment).to have_attributes(provider_payment_id: "transaction-1", status: "FAILURE", payable_payment_status: "failed")
       end
     end
 
