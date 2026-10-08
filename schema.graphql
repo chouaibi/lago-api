@@ -527,6 +527,24 @@ input AddGocardlessPaymentProviderInput {
 }
 
 """
+Mastercard input arguments
+"""
+input AddMastercardPaymentProviderInput {
+  apiPassword: String!
+
+  """
+  A unique identifier for the client performing the mutation.
+  """
+  clientMutationId: String
+  code: String!
+  merchantId: String!
+  name: String!
+  region: String!
+  testMode: Boolean
+  webhookSecret: String
+}
+
+"""
 Moneyhash input arguments
 """
 input AddMoneyhashPaymentProviderInput {
@@ -8387,6 +8405,17 @@ input MarkOrderFormAsSignedInput {
   signedDocument: String
 }
 
+type MastercardProvider {
+  apiPassword: ObfuscatedString
+  code: String!
+  id: ID!
+  merchantId: ObfuscatedString
+  name: String!
+  region: String
+  testMode: Boolean
+  webhookSecret: String
+}
+
 type Membership {
   createdAt: ISO8601DateTime!
   id: ID!
@@ -8534,6 +8563,16 @@ type Mutation {
     """
     input: AddGocardlessPaymentProviderInput!
   ): GocardlessProvider
+
+  """
+  Add Mastercard payment provider
+  """
+  addMastercardPaymentProvider(
+    """
+    Parameters for AddMastercardPaymentProvider
+    """
+    input: AddMastercardPaymentProviderInput!
+  ): MastercardProvider
 
   """
   Add Moneyhash payment provider
@@ -10152,6 +10191,16 @@ type Mutation {
   ): ProviderCustomer
 
   """
+  Store a Mastercard card token, tokenized outside of Lago, as the default payment method of a customer
+  """
+  storeMastercardCustomerToken(
+    """
+    Parameters for StoreMastercardCustomerToken
+    """
+    input: StoreMastercardCustomerTokenInput!
+  ): Customer
+
+  """
   Sync hubspot integration invoice
   """
   syncHubspotIntegrationInvoice(
@@ -10576,6 +10625,16 @@ type Mutation {
     """
     input: UpdateInvoiceCustomSectionInput!
   ): InvoiceCustomSection
+
+  """
+  Update Mastercard payment provider
+  """
+  updateMastercardPaymentProvider(
+    """
+    Parameters for UpdateMastercardPaymentProvider
+    """
+    input: UpdateMastercardPaymentProviderInput!
+  ): MastercardProvider
 
   """
   Update a membership
@@ -11271,7 +11330,7 @@ enum PaymentMethodTypeEnum {
   provider
 }
 
-union PaymentProvider = AdyenProvider | CashfreeProvider | FlutterwaveProvider | GocardlessProvider | MoneyhashProvider | StripeProvider
+union PaymentProvider = AdyenProvider | CashfreeProvider | FlutterwaveProvider | GocardlessProvider | MastercardProvider | MoneyhashProvider | StripeProvider
 
 """
 PaymentProviderCollection type
@@ -12192,6 +12251,7 @@ enum ProviderTypeEnum {
   cashfree
   flutterwave
   gocardless
+  mastercard
   moneyhash
   stripe
 }
@@ -14315,6 +14375,25 @@ enum StatusTypeEnum {
   terminated
 }
 
+"""
+Store Mastercard customer token input arguments
+"""
+input StoreMastercardCustomerTokenInput {
+  agreementId: String
+  brand: String
+  cardHolderName: String
+
+  """
+  A unique identifier for the client performing the mutation.
+  """
+  clientMutationId: String
+  customerId: ID!
+  expirationMonth: Int
+  expirationYear: Int
+  last4: String
+  token: String!
+}
+
 type StripeProvider {
   code: String!
   id: ID!
@@ -16067,6 +16146,25 @@ input UpdateInvoiceInput {
   id: ID!
   metadata: [InvoiceMetadataInput!]
   paymentStatus: InvoicePaymentStatusTypeEnum
+}
+
+"""
+Update Mastercard input arguments
+"""
+input UpdateMastercardPaymentProviderInput {
+  apiPassword: String
+
+  """
+  A unique identifier for the client performing the mutation.
+  """
+  clientMutationId: String
+  code: String
+  id: ID!
+  merchantId: String
+  name: String
+  region: String
+  testMode: Boolean
+  webhookSecret: String
 }
 
 """
