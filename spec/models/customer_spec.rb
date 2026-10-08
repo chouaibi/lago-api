@@ -778,6 +778,17 @@ RSpec.describe Customer do
         expect(customer.provider_customer).to eq(gocardless_customer)
       end
     end
+
+    context "when payment provider is mastercard" do
+      let(:payment_provider) { "mastercard" }
+      let(:mastercard_customer) { create(:mastercard_customer, customer:) }
+
+      before { mastercard_customer }
+
+      it "returns the mastercard provider customer object" do
+        expect(customer.provider_customer).to eq(mastercard_customer)
+      end
+    end
   end
 
   describe "#payment_connection_status" do
