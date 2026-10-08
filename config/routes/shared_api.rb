@@ -49,6 +49,7 @@ resources :customers, param: :external_id, only: %i[create index show destroy] d
     resources :payment_methods, only: %i[index destroy] do
       put :set_as_default, on: :member
     end
+    resource :mastercard_token, only: %i[create]
   end
 end
 

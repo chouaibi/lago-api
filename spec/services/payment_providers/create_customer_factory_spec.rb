@@ -52,5 +52,14 @@ RSpec.describe PaymentProviders::CreateCustomerFactory do
         expect(new_instance).to be_instance_of(PaymentProviders::Flutterwave::Customers::CreateService)
       end
     end
+
+    context "when provider is mastercard" do
+      let(:provider) { "mastercard" }
+      let(:payment_provider_id) { create(:mastercard_provider, organization: customer.organization).id }
+
+      it "creates an instance of the mastercard service" do
+        expect(new_instance).to be_instance_of(PaymentProviders::Mastercard::Customers::CreateService)
+      end
+    end
   end
 end

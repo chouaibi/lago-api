@@ -53,4 +53,30 @@ FactoryBot.define do
 
     provider_customer_id { SecureRandom.uuid }
   end
+
+  factory :mastercard_customer, class: "PaymentProviderCustomers::MastercardCustomer" do
+    customer
+    organization { customer.organization }
+    payment_provider { association(:mastercard_provider, organization:) }
+
+    transient do
+      agreement_id { nil }
+      token { nil }
+    end
+
+    settings do
+      agreement_id ? {agreement_id:} : {}
+    end
+
+    after(:create) do |mastercard_customer, evaluator|
+      next unless evaluator.token
+
+      create(
+        :payment_method,
+        payment_provider_customer: mastercard_customer,
+        provider_method_id: evaluator.token,
+        is_default: true
+      )
+    end
+  end
 end

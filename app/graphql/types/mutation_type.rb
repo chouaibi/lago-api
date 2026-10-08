@@ -98,6 +98,7 @@ module Types
     field :add_cashfree_payment_provider, mutation: Mutations::PaymentProviders::Cashfree::Create
     field :add_flutterwave_payment_provider, mutation: Mutations::PaymentProviders::Flutterwave::Create
     field :add_gocardless_payment_provider, mutation: Mutations::PaymentProviders::Gocardless::Create
+    field :add_mastercard_payment_provider, mutation: Mutations::PaymentProviders::Mastercard::Create
     field :add_moneyhash_payment_provider, mutation: Mutations::PaymentProviders::Moneyhash::Create
     field :add_stripe_payment_provider, mutation: Mutations::PaymentProviders::Stripe::Create
 
@@ -105,6 +106,7 @@ module Types
     field :update_cashfree_payment_provider, mutation: Mutations::PaymentProviders::Cashfree::Update
     field :update_flutterwave_payment_provider, mutation: Mutations::PaymentProviders::Flutterwave::Update
     field :update_gocardless_payment_provider, mutation: Mutations::PaymentProviders::Gocardless::Update
+    field :update_mastercard_payment_provider, mutation: Mutations::PaymentProviders::Mastercard::Update
     field :update_moneyhash_payment_provider, mutation: Mutations::PaymentProviders::Moneyhash::Update
     field :update_stripe_payment_provider, mutation: Mutations::PaymentProviders::Stripe::Update
 
@@ -113,6 +115,7 @@ module Types
     field :destroy_payment_method, mutation: Mutations::PaymentMethods::Destroy
     field :generate_checkout_url, mutation: Mutations::PaymentMethods::GenerateCheckoutUrl
     field :set_payment_method_as_default, mutation: Mutations::PaymentMethods::SetAsDefault
+    field :store_mastercard_customer_token, mutation: Mutations::PaymentProviders::Mastercard::StoreCustomerToken
 
     field :create_integration_customer, mutation: Mutations::IntegrationCustomers::Create
     field :create_payment_provider_customer, mutation: Mutations::PaymentProviderCustomers::Create

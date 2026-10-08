@@ -128,13 +128,14 @@ class Customer < ApplicationRecord
   has_one :hubspot_customer, class_name: "IntegrationCustomers::HubspotCustomer"
   has_one :salesforce_customer, class_name: "IntegrationCustomers::SalesforceCustomer"
   has_one :moneyhash_customer, class_name: "PaymentProviderCustomers::MoneyhashCustomer"
+  has_one :mastercard_customer, class_name: "PaymentProviderCustomers::MastercardCustomer"
 
   has_one :default_payment_method, -> { where(is_default: true) }, class_name: "PaymentMethod"
   has_one :pending_vies_check
 
   delegate :default_currency, to: :organization, prefix: true
 
-  PAYMENT_PROVIDERS = %w[stripe gocardless cashfree adyen flutterwave moneyhash].freeze
+  PAYMENT_PROVIDERS = %w[stripe gocardless cashfree adyen flutterwave moneyhash mastercard].freeze
 
   default_scope -> { kept }
   sequenced scope: ->(customer) { customer.organization.customers.with_discarded },

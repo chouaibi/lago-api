@@ -439,4 +439,57 @@ RSpec.describe WebhooksController do
       end
     end
   end
+
+  describe "POST /mastercard" do
+    let(:organization) { create(:organization) }
+    let(:mastercard_provider) { create(:mastercard_provider, organization:) }
+    let(:body) do
+      {
+        result: "SUCCESS",
+        order: {id: SecureRandom.uuid, status: "CAPTURED"},
+        transaction: {id: SecureRandom.uuid, type: "PAYMENT"}
+      }
+    end
+    let(:result) do
+      result = PaymentProviders::Mastercard::HandleIncomingWebhookService::Result.new
+      result.event = body.to_json
+      result
+    end
+
+    before do
+      allow(PaymentProviders::Mastercard::HandleIncomingWebhookService).to receive(:call)
+        .with(
+          organization_id: organization.id,
+          code: nil,
+          body: body.to_json,
+          secret: "GATEWAY_SECRET"
+        )
+        .and_return(result)
+
+      post(
+        "/webhooks/mastercard/#{mastercard_provider.organization_id}",
+        params: body.to_json,
+        headers: {
+          "Content-Type" => "application/json",
+          "X-Notification-Secret" => "GATEWAY_SECRET"
+        }
+      )
+    end
+
+    it "handles mastercard webhooks" do
+      expect(response).to have_http_status(:success)
+      expect(PaymentProviders::Mastercard::HandleIncomingWebhookService).to have_received(:call)
+    end
+
+    context "when failing to handle mastercard event" do
+      let(:result) do
+        PaymentProviders::Mastercard::HandleIncomingWebhookService::Result.new
+          .service_failure!(code: "webhook_error", message: "Invalid webhook secret")
+      end
+
+      it "returns a bad request status" do
+        expect(response).to have_http_status(:bad_request)
+      end
+    end
+  end
 end

@@ -456,6 +456,26 @@ RSpec.describe CreditNotes::CreateService do
         end
       end
 
+      context "when Mastercard provider" do
+        let(:mastercard_provider) { create(:mastercard_provider) }
+        let(:mastercard_customer) { create(:mastercard_customer) }
+        let(:payment) do
+          create(
+            :payment,
+            payable: invoice,
+            payable_payment_status: "succeeded",
+            payment_provider: mastercard_provider,
+            payment_provider_customer: mastercard_customer
+          )
+        end
+
+        it "enqueues a refund job after commit" do
+          expect { subject }.to have_enqueued_job_after_commit(CreditNotes::Refunds::MastercardCreateJob).with do |job_credit_note|
+            expect(job_credit_note).to eq(credit_note)
+          end
+        end
+      end
+
       context "when the invoice was paid through a payment request" do
         let(:payment_request) { create(:payment_request, :succeeded, customer:, invoices: [invoice]) }
         let(:payment) { create(:payment, payable: payment_request, payable_payment_status: "succeeded") }

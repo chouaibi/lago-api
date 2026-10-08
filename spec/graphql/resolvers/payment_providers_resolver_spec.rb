@@ -105,6 +105,44 @@ RSpec.describe Resolvers::PaymentProvidersResolver do
     end
   end
 
+  context "when type is mastercard" do
+    let(:mastercard_provider) { create(:mastercard_provider, organization:) }
+    let(:query) do
+      <<~GQL
+        query {
+          paymentProviders(limit: 5, type: mastercard) {
+            collection {
+              ... on MastercardProvider {
+                id
+                code
+                __typename
+              }
+            }
+            metadata { currentPage, totalCount }
+          }
+        }
+      GQL
+    end
+
+    before { mastercard_provider }
+
+    it "returns the mastercard payment providers" do
+      result = execute_graphql(
+        current_user: membership.user,
+        current_organization: organization,
+        permissions: required_permission,
+        query:
+      )
+
+      payment_providers_response = result["data"]["paymentProviders"]
+
+      expect(payment_providers_response["collection"]).to eq(
+        [{"id" => mastercard_provider.id, "code" => mastercard_provider.code, "__typename" => "MastercardProvider"}]
+      )
+      expect(payment_providers_response["metadata"]["totalCount"]).to eq(1)
+    end
+  end
+
   context "when type is not present" do
     let(:query) do
       <<~GQL

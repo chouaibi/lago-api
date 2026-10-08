@@ -151,10 +151,16 @@ module Invoices
         return false if invoice.payment_succeeded? || invoice.voided? || invoice.closed?
         return false if current_payment_provider.blank?
 
-        current_payment_provider_customer&.provider_customer_id &&
+        (current_payment_provider_customer&.provider_customer_id || mastercard_customer?) &&
           (determine_payment_method.present? ||
             provider_payment_method_pending_backfill? ||
             stripe_customer_balance_only?)
+      end
+
+      # NOTE: The Mastercard gateway has no customer object, so a Mastercard customer never has a
+      #       provider_customer_id. It is charged with the card token stored as its payment method.
+      def mastercard_customer?
+        current_payment_provider_customer.is_a?(PaymentProviderCustomers::MastercardCustomer)
       end
 
       # NOTE: A Stripe customer_balance (V-BAN) customer has no instrument to pull from, so no

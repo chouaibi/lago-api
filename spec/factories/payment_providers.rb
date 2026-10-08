@@ -120,4 +120,26 @@ FactoryBot.define do
       webhook_secret { SecureRandom.hex(32) }
     end
   end
+
+  factory :mastercard_provider, class: "PaymentProviders::MastercardProvider" do
+    organization
+    type { "PaymentProviders::MastercardProvider" }
+    name { "Mastercard" }
+    code { "mastercard_#{SecureRandom.uuid}" }
+    secrets do
+      {merchant_id:, api_password:, webhook_secret:}.to_json
+    end
+
+    settings do
+      {region:, test_mode:}
+    end
+
+    transient do
+      merchant_id { "MERCHANT#{SecureRandom.hex(4).upcase}" }
+      api_password { SecureRandom.hex(16) }
+      webhook_secret { SecureRandom.hex(16).upcase }
+      region { "eu" }
+      test_mode { false }
+    end
+  end
 end

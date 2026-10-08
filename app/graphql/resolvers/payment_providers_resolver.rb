@@ -37,6 +37,8 @@ module Resolvers
         PaymentProviders::FlutterwaveProvider.to_s
       when "moneyhash"
         PaymentProviders::MoneyhashProvider.to_s
+      when "mastercard"
+        PaymentProviders::MastercardProvider.to_s
       else
         raise(NotImplementedError)
       end
