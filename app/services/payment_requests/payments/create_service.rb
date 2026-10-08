@@ -122,9 +122,16 @@ module PaymentRequests
       def should_process_payment?
         return false if payable.payment_succeeded?
         return false if current_payment_provider.blank?
-        return false unless current_payment_provider_customer&.provider_customer_id
+        return false unless current_payment_provider_customer&.provider_customer_id || chargeable_mastercard_customer?
 
         payable.invoices.all?(&:ready_for_payment_processing)
+      end
+
+      # NOTE: The Mastercard gateway has no customer object, so a Mastercard customer never has a
+      #       provider_customer_id. It is charged with the card token stored as its payment method.
+      def chargeable_mastercard_customer?
+        current_payment_provider_customer.is_a?(PaymentProviderCustomers::MastercardCustomer) &&
+          determine_payment_method.present?
       end
 
       def current_payment_provider

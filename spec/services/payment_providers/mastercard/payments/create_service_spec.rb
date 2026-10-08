@@ -70,6 +70,52 @@ RSpec.describe PaymentProviders::Mastercard::Payments::CreateService do
       )
     end
 
+    context "when the payable is a payment request" do
+      let(:payment_request) { create(:payment_request, organization:, customer:, invoices: [invoice], amount_cents: 10_050, amount_currency: "USD") }
+      let(:payment) do
+        create(
+          :payment,
+          payable: payment_request,
+          customer:,
+          payment_provider: mastercard_provider,
+          payment_provider_customer: mastercard_customer,
+          amount_cents: 10_050,
+          amount_currency: "USD",
+          provider_payment_id: nil
+        )
+      end
+      let(:charge_url) { %r{/order/#{payment_request.id}/transaction/[0-9a-f-]{36}\z} }
+
+      it "charges the payment request order" do
+        result = create_service.call
+
+        expect(result).to be_success
+        expect(WebMock).to have_requested(:put, charge_url).with { |request|
+          body = JSON.parse(request.body)
+          body.dig("order", "reference") == payment_request.id && body.dig("transaction", "reference") == payment_request.id
+        }
+      end
+    end
+
+    context "when the invoice gates a subscription" do
+      let(:subscription) do
+        create(:subscription, :incomplete, :with_activation_rules,
+          activation_rules_config: [{type: "payment", timeout_hours: 48, status: "pending"}],
+          customer:, organization:)
+      end
+      let(:invoice) { create(:invoice, organization:, customer:, total_amount_cents: 10_050, currency: "USD", status: :open) }
+
+      before { create(:invoice_subscription, invoice:, subscription:) }
+
+      it "references the invoice by its id" do
+        create_service.call
+
+        expect(WebMock).to have_requested(:put, charge_url).with { |request|
+          JSON.parse(request.body).dig("order", "reference") == invoice.id
+        }
+      end
+    end
+
     context "when a payment method is selected for the payment" do
       let(:payment_method) { create(:payment_method, payment_provider_customer: mastercard_customer, provider_method_id: "5555000011112222", is_default: false) }
 

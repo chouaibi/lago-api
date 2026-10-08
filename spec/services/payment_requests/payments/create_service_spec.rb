@@ -209,6 +209,39 @@ RSpec.describe PaymentRequests::Payments::CreateService do
       end
     end
 
+    context "with mastercard payment provider" do
+      let(:provider) { "mastercard" }
+      let(:payment_provider) { create(:mastercard_provider, code: payment_provider_code, organization:) }
+      let(:provider_customer) { create(:mastercard_customer, payment_provider:, customer:) }
+      let(:default_payment_method) do
+        create(:payment_method, customer:, payment_provider_customer: provider_customer, provider_method_id: "9999000011112222")
+      end
+
+      let(:provider_class) { PaymentProviders::Mastercard::Payments::CreateService }
+      let(:provider_service) { instance_double(provider_class) }
+
+      it "calls the mastercard service although the customer has no provider customer id" do
+        result = create_service.call
+
+        expect(result).to be_success
+        expect(result.payment.payment_method).to eq(default_payment_method)
+        expect(result.payable).to be_payment_succeeded
+        expect(provider_class).to have_received(:new)
+        expect(provider_service).to have_received(:call!)
+      end
+
+      context "without stored card" do
+        let(:default_payment_method) { nil }
+
+        it "does not create a payment" do
+          result = create_service.call
+
+          expect(result.payment).to be_nil
+          expect(provider_class).not_to have_received(:new)
+        end
+      end
+    end
+
     context "with stripe payment provider" do
       it "creates a payment and calls the stripe service" do
         result = create_service.call

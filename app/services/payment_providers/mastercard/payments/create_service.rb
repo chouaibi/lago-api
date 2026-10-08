@@ -16,7 +16,7 @@ module PaymentProviders
           @payment = payment
           @reference = reference
           @metadata = metadata
-          @invoice = payment.payable
+          @payable = payment.payable
           @provider_customer = payment.payment_provider_customer
 
           super
@@ -55,7 +55,7 @@ module PaymentProviders
 
         private
 
-        attr_reader :payment, :reference, :metadata, :invoice, :provider_customer
+        attr_reader :payment, :reference, :metadata, :payable, :provider_customer
 
         delegate :payment_provider, to: :payment
 
@@ -70,7 +70,7 @@ module PaymentProviders
         end
 
         def charge_url
-          "#{payment_provider.api_url}/order/#{invoice.id}/transaction/#{transaction_id}"
+          "#{payment_provider.api_url}/order/#{payable.id}/transaction/#{transaction_id}"
         end
 
         def charge_payload
@@ -90,14 +90,25 @@ module PaymentProviders
             order: {
               amount: amount,
               currency: payment.amount_currency.upcase,
-              reference: invoice.number,
+              reference: payable_reference,
               description: reference
             },
             transaction: {
-              reference: invoice.number,
+              reference: payable_reference,
               source: "MERCHANT"
             }
           }
+        end
+
+        # NOTE: The gateway order of a payment is its payable (invoice or payment request).
+        #       An invoice is referenced by its number, unless it gates a subscription
+        #       and its number is not final yet.
+        def payable_reference
+          if payable.is_a?(Invoice) && !payable.subscription_gated?
+            payable.number
+          else
+            payable.id
+          end
         end
 
         # NOTE: The gateway expects the amount in major units, as a decimal string.
