@@ -64,7 +64,7 @@ RSpec.describe PaymentProviders::Mastercard::Payments::CreateService do
 
       expect(result).to be_success
       expect(result.payment).to have_attributes(
-        provider_payment_id: "transaction-1",
+        provider_payment_id: payment.id,
         status: "SUCCESS",
         payable_payment_status: "succeeded"
       )
@@ -141,7 +141,7 @@ RSpec.describe PaymentProviders::Mastercard::Payments::CreateService do
       it "marks the payment as failed" do
         result = create_service.call
 
-        expect(result.payment).to have_attributes(provider_payment_id: "transaction-1", status: "FAILURE", payable_payment_status: "failed")
+        expect(result.payment).to have_attributes(provider_payment_id: payment.id, status: "FAILURE", payable_payment_status: "failed")
       end
     end
 
@@ -157,6 +157,87 @@ RSpec.describe PaymentProviders::Mastercard::Payments::CreateService do
         expect(result.error.code).to eq("mastercard_error")
         expect(result.error_code).to eq("400")
         expect(result.payment).to have_attributes(status: "failed", payable_payment_status: "failed")
+      end
+    end
+
+    context "when the gateway answer is lost" do
+      let(:transaction_url) { "#{mastercard_provider.api_url}/order/#{invoice.id}/transaction/#{payment.id}" }
+
+      before do
+        stub_request(:put, charge_url).to_raise(Net::ReadTimeout).then
+          .to_return(status: 200, body: response_body.to_json)
+        stub_request(:get, transaction_url).to_return(status: 404, body: {result: "ERROR", error: {cause: "INVALID_REQUEST"}}.to_json)
+      end
+
+      it "keeps the payment pending with its transaction id and raises a connection error" do
+        expect { create_service.call }.to raise_error(Invoices::Payments::ConnectionError)
+
+        expect(payment.reload).to have_attributes(provider_payment_id: payment.id, payable_payment_status: "pending")
+      end
+
+      it "retries the PAY request with the same transaction id" do
+        expect { create_service.call }.to raise_error(Invoices::Payments::ConnectionError)
+
+        result = described_class.new(payment: payment.reload, reference:, metadata: {}).call
+
+        expect(result).to be_success
+        expect(result.payment).to have_attributes(provider_payment_id: payment.id, payable_payment_status: "succeeded")
+        expect(WebMock).to have_requested(:get, transaction_url).once
+        expect(WebMock).to have_requested(:put, transaction_url).twice
+        expect(WebMock).to have_requested(:put, charge_url).twice
+      end
+    end
+
+    context "when the payment already has a transaction" do
+      let(:payment) do
+        create(
+          :payment,
+          payable: invoice,
+          customer:,
+          payment_provider: mastercard_provider,
+          payment_provider_customer: mastercard_customer,
+          amount_cents: invoice.total_amount_cents,
+          amount_currency: invoice.currency,
+          provider_payment_id: "transaction-0",
+          payable_payment_status: "pending"
+        )
+      end
+      let(:transaction_url) { "#{mastercard_provider.api_url}/order/#{invoice.id}/transaction/transaction-0" }
+
+      before do
+        stub_request(:get, transaction_url).to_return(
+          status: 200,
+          body: {result: "SUCCESS", order: {id: invoice.id}, transaction: {id: "transaction-0", type: "PAYMENT"}}.to_json
+        )
+      end
+
+      it "reconciles the existing transaction without charging again" do
+        result = create_service.call
+
+        expect(result).to be_success
+        expect(result.payment).to have_attributes(provider_payment_id: "transaction-0", status: "SUCCESS", payable_payment_status: "succeeded")
+        expect(WebMock).not_to have_requested(:put, charge_url)
+      end
+
+      context "when the gateway cannot read the transaction back" do
+        before { stub_request(:get, transaction_url).to_return(status: 503, body: "") }
+
+        it "raises a connection error without charging" do
+          expect { create_service.call }.to raise_error(Invoices::Payments::ConnectionError)
+
+          expect(WebMock).not_to have_requested(:put, charge_url)
+          expect(payment.reload.payable_payment_status).to eq("pending")
+        end
+      end
+    end
+
+    context "when the gateway answers with a server error" do
+      before { stub_request(:put, charge_url).to_return(status: 502, body: "") }
+
+      it "keeps the payment pending and raises a connection error" do
+        expect { create_service.call }.to raise_error(Invoices::Payments::ConnectionError)
+
+        expect(payment.reload).to have_attributes(provider_payment_id: payment.id, payable_payment_status: "pending")
       end
     end
 

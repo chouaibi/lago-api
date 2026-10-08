@@ -7,10 +7,18 @@ module PaymentProviders
       #
       # The PAY request replays the credential-on-file agreement established when the
       # card was saved, otherwise the gateway rejects it.
+      #
+      # The charge is idempotent across retries: the gateway transaction id is derived from
+      # the payment and stored on it before the PAY request. When the payment already has
+      # one (the previous attempt lost its answer), the transaction is read back first and
+      # the PAY request is only sent again, with the same transaction id, if it does not exist.
       class CreateService < BaseService
         Result = BaseResult[:payment, :error_message, :error_code, :reraise, :should_retry]
 
         AGREEMENT_TYPE = "UNSCHEDULED"
+
+        # NOTE: The outcome of a request that raised one of these errors is unknown.
+        CONNECTION_ERRORS = LagoHttpClient::Client::TRANSIENT_ERROR_CLASSES + [Timeout::Error, SocketError]
 
         def initialize(payment:, reference:, metadata:)
           @payment = payment
@@ -39,18 +47,25 @@ module PaymentProviders
             )
           end
 
-          response = LagoHttpClient::Client.new(charge_url).put_with_response(charge_payload, payment_provider.api_headers)
-          parsed = JSON.parse(response.body)
+          retrying = payment.provider_payment_id.present?
+          payment.update!(provider_payment_id: transaction_id) unless retrying
 
-          payment.provider_payment_id = parsed.dig("transaction", "id") || transaction_id
-          payment.status = parsed["result"]
+          transaction = (retrying && fetch_transaction) || create_transaction
+
+          payment.status = transaction["result"]
           payment.payable_payment_status = payment_provider.determine_payment_status(payment.status)
           payment.save!
 
           result.payment = payment
           result
         rescue LagoHttpClient::HttpError => e
+          # NOTE: A server error leaves the outcome unknown, like a connection error.
+          raise Invoices::Payments::ConnectionError, e if server_error?(e)
+
           prepare_failed_result(e)
+        rescue *CONNECTION_ERRORS => e
+          # NOTE: Allow auto-retry, the retry reuses the transaction id of the payment.
+          raise Invoices::Payments::ConnectionError, e
         end
 
         private
@@ -66,11 +81,30 @@ module PaymentProviders
 
         # NOTE: The transaction id identifies the payment in the gateway notifications.
         def transaction_id
-          @transaction_id ||= SecureRandom.uuid
+          payment.provider_payment_id.presence || payment.id
         end
 
-        def charge_url
+        def transaction_url
           "#{payment_provider.api_url}/order/#{payable.id}/transaction/#{transaction_id}"
+        end
+
+        def create_transaction
+          response = LagoHttpClient::Client.new(transaction_url).put_with_response(charge_payload, payment_provider.api_headers)
+          JSON.parse(response.body)
+        end
+
+        # NOTE: Returns nil when the gateway does not know the transaction, so it can be created.
+        def fetch_transaction
+          transaction = LagoHttpClient::Client.new(transaction_url).get(headers: payment_provider.api_headers)
+          transaction.presence if transaction["result"].present?
+        rescue LagoHttpClient::HttpError => e
+          raise if server_error?(e)
+
+          nil
+        end
+
+        def server_error?(error)
+          error.error_code.to_i >= 500
         end
 
         def charge_payload

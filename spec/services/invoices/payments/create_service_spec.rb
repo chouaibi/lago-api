@@ -160,6 +160,32 @@ RSpec.describe Invoices::Payments::CreateService do
           expect(provider_class).not_to have_received(:new)
         end
       end
+
+      context "when the gateway answer is lost" do
+        # NOTE: Only the stripe service is stubbed, the mastercard charge runs against WebMock.
+        let(:provider_class) { PaymentProviders::Stripe::Payments::CreateService }
+        let(:provider_customer) { create(:mastercard_customer, payment_provider:, customer:, agreement_id: "agreement-1") }
+        let(:transaction_url) { %r{/order/#{invoice.id}/transaction/[0-9a-f-]{36}\z} }
+
+        before do
+          stub_request(:put, transaction_url).to_raise(Net::ReadTimeout).then
+            .to_return(status: 200, body: {result: "SUCCESS"}.to_json)
+          stub_request(:get, transaction_url).to_return(status: 404, body: {result: "ERROR"}.to_json)
+        end
+
+        it "retries the charge with the same payment and transaction" do
+          expect { create_service.call }.to raise_error(Invoices::Payments::ConnectionError)
+
+          result = described_class.new(invoice: invoice.reload, payment_provider: provider).call
+
+          payment = invoice.payments.sole
+          expect(result.payment).to eq(payment)
+          expect(payment).to have_attributes(provider_payment_id: payment.id, payable_payment_status: "succeeded")
+          expect(invoice.reload).to be_payment_succeeded
+          expect(WebMock).to have_requested(:put, %r{/transaction/#{payment.id}\z}).twice
+          expect(WebMock).to have_requested(:put, transaction_url).twice
+        end
+      end
     end
 
     context "with subscription invoice" do
