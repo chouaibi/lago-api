@@ -5,6 +5,9 @@ module Invoices
     class GeneratePaymentUrlService < BaseService
       Result = BaseResult[:payment_url]
 
+      # NOTE: These providers only charge stored payment methods and have no hosted payment page.
+      NO_PAYMENT_URL_PROVIDERS = %w[gocardless mastercard].freeze
+
       include Customers::PaymentProviderFinder
 
       def initialize(invoice:)
@@ -17,7 +20,7 @@ module Invoices
       def call
         return result.not_found_failure!(resource: "invoice") if invoice.blank?
         return result.single_validation_failure!(error_code: "no_linked_payment_provider") unless provider
-        return result.single_validation_failure!(error_code: "invalid_payment_provider") if provider == "gocardless"
+        return result.single_validation_failure!(error_code: "invalid_payment_provider") if NO_PAYMENT_URL_PROVIDERS.include?(provider)
 
         if invoice.payment_succeeded? || invoice.voided? || invoice.draft?
           return result.single_validation_failure!(error_code: "invalid_invoice_status_or_payment_status")

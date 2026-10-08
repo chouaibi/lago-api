@@ -7,7 +7,8 @@ module PaymentRequests
 
       include Customers::PaymentProviderFinder
 
-      PROVIDER_GOCARDLESS = "gocardless"
+      # NOTE: These providers only charge stored payment methods and have no hosted payment page.
+      NO_PAYMENT_URL_PROVIDERS = %w[gocardless mastercard].freeze
 
       def initialize(payable:)
         @payable = payable
@@ -18,7 +19,7 @@ module PaymentRequests
 
       def call
         return result.single_validation_failure!(error_code: "no_linked_payment_provider") if provider.blank?
-        return result.single_validation_failure!(error_code: "invalid_payment_provider") if gocardless_provider?
+        return result.single_validation_failure!(error_code: "invalid_payment_provider") if NO_PAYMENT_URL_PROVIDERS.include?(provider)
         return result.single_validation_failure!(error_code: "invalid_payment_status") if payable.payment_succeeded?
 
         if current_payment_provider.blank?
@@ -50,10 +51,6 @@ module PaymentRequests
       attr_reader :payable, :provider
 
       delegate :customer, to: :payable
-
-      def gocardless_provider?
-        provider == PROVIDER_GOCARDLESS
-      end
 
       def current_payment_provider_customer
         @current_payment_provider_customer ||= customer.payment_provider_customers
